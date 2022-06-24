@@ -80,7 +80,7 @@ ___TEMPLATE_PARAMETERS___
           },
           {
             "type": "LABEL",
-            "name": "customInfo",
+            "name": "simplepopupInfo",
             "displayName": "Place a simple popup that will automatically launch when the workflow send a content",
             "enablingConditions": [
               {
@@ -118,8 +118,8 @@ ___TEMPLATE_PARAMETERS___
           },
           {
             "type": "TEXT",
-            "name": "userId",
-            "displayName": "User\u0027s id",
+            "name": "globalUserId",
+            "displayName": "User\u0027s id (optional)",
             "simpleValueType": true,
             "enablingConditions": [
               {
@@ -128,11 +128,21 @@ ___TEMPLATE_PARAMETERS___
                 "type": "EQUALS"
               }
             ],
-            "valueValidators": [
+            "valueValidators": []
+          },
+          {
+            "type": "TEXT",
+            "name": "userId",
+            "displayName": "User\u0027s id (optional)",
+            "simpleValueType": true,
+            "enablingConditions": [
               {
-                "type": "NON_EMPTY"
+                "paramName": "eventName",
+                "paramValue": "simple-popup",
+                "type": "EQUALS"
               }
-            ]
+            ],
+            "valueValidators": []
           },
           {
             "type": "TEXT",
@@ -149,13 +159,6 @@ ___TEMPLATE_PARAMETERS___
             "valueValidators": [
               {
                 "type": "NON_EMPTY"
-              },
-              {
-                "type": "TABLE_ROW_COUNT",
-                "args": [
-                  24,
-                  24
-                ]
               }
             ]
           },
@@ -272,9 +275,10 @@ const eventName = data.eventName;
 
 function onScriptLoaded () {
   log('Reelevant script injected!');
+  if (typeof data.globalUserId === "string") {
+    callInWindow('rlvt.identify', [data.globalUserId]);
+  }
   data.gtmOnSuccess();
-  // identify when loaded
-  callInWindow('rlvt.identify', [data.userId]);
 }
 function onScriptFailure () {
   log('Injecting reelevant script failed');
@@ -292,12 +296,12 @@ function main () {
         companyId: companyId,
         queue: queue || []
       }, true);
-      injectScript('https://scripts-repo.staging.reelevant.io/web-sdk?company=' + companyId, onScriptLoaded, onScriptFailure);
+      injectScript('https://scripts-repo.reelevant.com/web-sdk?company=' + companyId, onScriptLoaded, onScriptFailure);
       return;
   }
   log('Reelevant, triggering:', eventName);
   
-  // Add queue only if reel doesn't exists yet
+  // Add queue only if rlvt doesn't exists yet
   setInWindow('rlvt', {
     queue: []
   }, false);
@@ -305,12 +309,13 @@ function main () {
   // Handle event
   switch (eventName) {
     case 'simple-popup': {
-      callInWindow('reel.queue.push', [{
+      callInWindow('rlvt.queue.push', [{
         type: 'simple-popup',
         workflow: { id: data.workflowId, entrypoint: data.workflowEntrypoint },
-        params: transformParams(data.params),
+        params: transformParams(data.params || []),
         backdrop: true,
-        style: transformParams(data.style)
+        userId: data.userId,
+        style: transformParams(data.style || [])
       }]);
       break;
     }
@@ -444,7 +449,7 @@ ___WEB_PERMISSIONS___
                   },
                   {
                     "type": 8,
-                    "boolean": false
+                    "boolean": true
                   },
                   {
                     "type": 8,
@@ -542,10 +547,13 @@ ___WEB_PERMISSIONS___
           "key": "environments",
           "value": {
             "type": 1,
-            "string": "debug"
+            "string": "all"
           }
         }
       ]
+    },
+    "clientAnnotations": {
+      "isEditedByUser": true
     },
     "isRequired": true
   }
